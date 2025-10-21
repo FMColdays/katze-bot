@@ -123,9 +123,13 @@ async function createWelcomeImage(member, config) {
 
 export async function execute(member, client) {
   try {
-    const channelId = process.env.WELCOME_CHANNEL_ID
+    // Cargar configuración del servidor
+    const config = await loadConfig(member.guild.id)
+
+    // Prioridad: configuración del servidor > variable de entorno > deshabilitado
+    const channelId = config.welcomeChannel || process.env.WELCOME_CHANNEL_ID
     if (!channelId) {
-      console.log('⚠️ WELCOME_CHANNEL_ID no configurado - evento de bienvenida deshabilitado')
+      console.log('⚠️ Canal de bienvenida no configurado - usa /welcome canal o WELCOME_CHANNEL_ID')
       return
     }
 
@@ -143,8 +147,6 @@ export async function execute(member, client) {
       ?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles])
     if (!canSend) return
 
-    // Cargar configuración del servidor
-    const config = await loadConfig(member.guild.id)
     console.log(`✅ Nuevo miembro: ${member.user.tag} en ${member.guild.name}`)
 
     // Generar imagen de bienvenida

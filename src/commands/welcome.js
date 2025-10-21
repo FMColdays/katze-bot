@@ -1,5 +1,5 @@
 // src/commands/welcome-simple.js
-import { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, PermissionFlagsBits } from 'discord.js'
+import { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, PermissionFlagsBits, ChannelType } from 'discord.js'
 import { createCanvas, loadImage } from 'canvas'
 import { promises as fs } from 'fs'
 import { join, dirname } from 'path'
@@ -14,6 +14,7 @@ const defaultConfig = {
   welcomeMessage: '¡BIENVENID@ A {server}!',
   embedDescription:
     'Bienvenido/a {user} al servidor oficial de {server}. Recuerda leer las reglas antes de empezar, es muy importante. ¡Pásalo muy bien! 🎊',
+  welcomeChannel: null,
 }
 
 // Guardar configuración
@@ -154,6 +155,18 @@ export const data = new SlashCommandBuilder()
         option.setName('texto').setDescription('Mensaje que aparece arriba de la imagen (usa {user}, {server}, {count})').setRequired(true)
       )
   )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('canal')
+      .setDescription('Configura el canal donde se enviarán los mensajes de bienvenida')
+      .addChannelOption(option =>
+        option
+          .setName('canal')
+          .setDescription('El canal donde enviar mensajes de bienvenida')
+          .addChannelTypes(ChannelType.GuildText)
+          .setRequired(true)
+      )
+  )
   .addSubcommand(subcommand => subcommand.setName('preview').setDescription('Ve una vista previa de tu configuración'))
   .addSubcommand(subcommand => subcommand.setName('reset').setDescription('Restaura la configuración por defecto'))
 
@@ -206,6 +219,30 @@ export async function execute(interaction) {
 
         await interaction.editReply({
           content: `✅ **Mensaje de texto configurado:**\n\`${texto}\`\n\n*Este mensaje aparecerá arriba de la imagen (sin embed)*`,
+        })
+        break
+      }
+
+      case 'canal': {
+        const canal = interaction.options.getChannel('canal')
+
+        // Verificar permisos del bot en el canal
+        const permisos = canal.permissionsFor(interaction.guild.members.me)
+        if (
+          !permisos ||
+          !permisos.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles])
+        ) {
+          await interaction.editReply({
+            content: `❌ **Error:** No tengo permisos suficientes en ${canal}\n\n**Permisos necesarios:**\n- Ver canal\n- Enviar mensajes\n- Adjuntar archivos`,
+          })
+          break
+        }
+
+        config.welcomeChannel = canal.id
+        await saveConfig(guildId, config)
+
+        await interaction.editReply({
+          content: `✅ **Canal de bienvenida configurado:** ${canal}\n\n*Los nuevos miembros recibirán la bienvenida en este canal.*`,
         })
         break
       }
