@@ -24,8 +24,11 @@ async function loadConfig(guildId) {
   try {
     const configPath = join(dirname(__dirname), 'data', 'welcome', `${guildId}.json`)
     const data = await fs.readFile(configPath, 'utf8')
-    return { ...defaultConfig, ...JSON.parse(data) }
+    const config = { ...defaultConfig, ...JSON.parse(data) }
+    console.log(`📁 Configuración cargada para servidor ${guildId}`)
+    return config
   } catch (error) {
+    console.log(`📁 Usando configuración por defecto para servidor ${guildId} (${error.code})`)
     return defaultConfig
   }
 }
@@ -121,10 +124,16 @@ async function createWelcomeImage(member, config) {
 export async function execute(member, client) {
   try {
     const channelId = process.env.WELCOME_CHANNEL_ID
-    if (!channelId) return
+    if (!channelId) {
+      console.log('⚠️ WELCOME_CHANNEL_ID no configurado - evento de bienvenida deshabilitado')
+      return
+    }
 
     const channel = member.guild.channels.cache.get(channelId) || (await member.guild.channels.fetch(channelId).catch(() => null))
-    if (!channel) return
+    if (!channel) {
+      console.log(`⚠️ Canal de bienvenida no encontrado: ${channelId}`)
+      return
+    }
 
     const me = member.guild.members.me || (await member.guild.members.fetch(client.user.id).catch(() => null))
     if (!me) return
@@ -136,6 +145,7 @@ export async function execute(member, client) {
 
     // Cargar configuración del servidor
     const config = await loadConfig(member.guild.id)
+    console.log(`✅ Nuevo miembro: ${member.user.tag} en ${member.guild.name}`)
 
     // Generar imagen de bienvenida
     const welcomeImageBuffer = await createWelcomeImage(member, config)
@@ -155,6 +165,7 @@ export async function execute(member, client) {
         content: welcomeText,
         files: [attachment],
       })
+      console.log(`✅ Mensaje de bienvenida enviado a ${member.user.tag}`)
     } else {
       // Fallback si falla la generación de imagen
       const welcomeText = config.embedDescription
